@@ -15,8 +15,9 @@ Système de mesure du niveau d’eau avec Raspberry Pi
 ## Technologies
 - Raspberry Pi
 - Capteur de niveau d’eau
-- Langage Python
 - Email pour alertes
-
+- MCP3008 pour Convertir un signal analogique en signal numérique
+- Langage Python
+  
 ## Auteur
 Samar Sifaoui
