@@ -20,7 +20,7 @@ spi.max_speed_hz = 1000000
 # Configuration email
 EMAIL_FROM = "sifaouisamar03@gmail.com"
 EMAIL_TO = "sifaouisamar03@gmail.com"
-EMAIL_PASSWORD = "oemx bhaw lxqs rwxx"
+EMAIL_PASSWORD = "**** **** **** ****"
 SMTP_SERVER = "smtp.gmail.com"  # Par exemple: smtp.gmail.com pour Gmail
 SMTP_PORT = 587
 
@@ -101,3 +101,4 @@ except Exception as e:
     print(f"Erreur inattendue: {e}")
     spi.close()
     display.lcd_clear()
+
