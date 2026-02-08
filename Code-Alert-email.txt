@@ -1,0 +1,103 @@
+import sys
+import time
+import spidev
+import smtplib
+from email.mime.text import MIMEText
+from datetime import datetime
+
+# Ajouter le chemin vers la bibliothèque LCD
+sys.path.append("/home/sifaoui/lcd")  # Remplacez par le vrai chemin
+import drivers
+
+# Initialisation du LCD
+display = drivers.Lcd()
+
+# Configuration SPI
+spi = spidev.SpiDev()
+spi.open(0, 0)
+spi.max_speed_hz = 1000000
+
+# Configuration email
+EMAIL_FROM = "sifaouisamar03@gmail.com"
+EMAIL_TO = "sifaouisamar03@gmail.com"
+EMAIL_PASSWORD = "oemx bhaw lxqs rwxx"
+SMTP_SERVER = "smtp.gmail.com"  # Par exemple: smtp.gmail.com pour Gmail
+SMTP_PORT = 587
+
+# Variables pour suivre l'état des notifications
+notification_envoyee_bas = False
+notification_envoyee_vide = False
+
+def lire_canal(channel):
+    adc = spi.xfer2([1, (8 + channel) << 4, 0])
+    return ((adc[1] & 3) << 8) + adc[2]
+
+def envoyer_email(sujet, message):
+    try:
+        msg = MIMEText(message)
+        msg['Subject'] = f"{sujet} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        msg['From'] = EMAIL_FROM
+        msg['To'] = EMAIL_TO
+        
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(EMAIL_FROM, EMAIL_PASSWORD)
+            server.sendmail(EMAIL_FROM, [EMAIL_TO], msg.as_string())
+        print("Email envoyé avec succès")
+    except Exception as e:
+        print(f"Erreur lors de l'envoi de l'email: {e}")
+
+try:
+    # Calibration
+    VALEUR_MIN = 100
+    VALEUR_MAX = 950
+    
+    while True:
+        valeur_brute = lire_canal(0)
+        pourcentage = (valeur_brute - VALEUR_MIN) / (VALEUR_MAX - VALEUR_MIN) * 100
+        pourcentage = max(0, min(100, round(pourcentage, 1)))
+
+        # Affichage terminal avec timestamp
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        print(f"[{timestamp}] Niveau: {pourcentage}% | Valeur brute: {valeur_brute}")
+        
+        # Affichage LCD
+        display.lcd_display_string(f"Niveau: {pourcentage}%", 1)
+        display.lcd_display_string(f"Raw: {valeur_brute}", 2)
+
+        # Gestion des alertes par email
+        if pourcentage < 10 and pourcentage > 0:
+            if not notification_envoyee_bas:
+                envoyer_email(
+                    "ALERTE: Niveau du réservoir bas", 
+                    f"Le niveau du réservoir est critique: {pourcentage}%\n"
+                    f"Valeur brute: {valeur_brute}\n"
+                    f"Date: {timestamp}"
+                )
+                notification_envoyee_bas = True
+                notification_envoyee_vide = False
+                
+        elif pourcentage <= 0:
+            if not notification_envoyee_vide:
+                envoyer_email(
+                    "URGENT: Réservoir vide", 
+                    f"Le réservoir est maintenant vide!\n"
+                    f"Valeur brute: {valeur_brute}\n"
+                    f"Date: {timestamp}"
+                )
+                notification_envoyee_vide = True
+                
+        else:  # Niveau normal (> 10%)
+            notification_envoyee_bas = False
+            notification_envoyee_vide = False
+
+        time.sleep(1)
+
+except KeyboardInterrupt:
+    print("\nArrêt du programme")
+    spi.close()
+    display.lcd_clear()
+except Exception as e:
+    print(f"Erreur inattendue: {e}")
+    spi.close()
+    display.lcd_clear()
